@@ -1,5 +1,5 @@
 ## 🎯 Riferimento task
-- ClickUp: <link al task>
+- ClickUp: [link al task](url)
 
 ## ✅ Cosa è stato fatto
 - ...
