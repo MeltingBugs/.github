@@ -1,0 +1,112 @@
+name: Dependabot Copilot Agent
+
+on:
+  workflow_call:
+    inputs:
+      run_on_major:
+        required: false
+        type: boolean
+        default: true
+      run_on_grouped_updates:
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  ask-copilot:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ github.token }}
+
+      - name: Ask Copilot to handle major dependency update
+        if: |
+          inputs.run_on_major == true &&
+          steps.metadata.outputs.update-type == 'version-update:semver-major'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PACKAGE_ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+          DEPENDENCY_NAMES: ${{ steps.metadata.outputs.dependency-names }}
+          DEPENDENCY_TYPE: ${{ steps.metadata.outputs.dependency-type }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          PREVIOUS_VERSION: ${{ steps.metadata.outputs.previous-version }}
+          NEW_VERSION: ${{ steps.metadata.outputs.new-version }}
+        run: |
+          gh pr comment "$PR_NUMBER" --body "@copilot
+
+          Questa è una PR Dependabot di aggiornamento dipendenze.
+
+          Lavora sulla branch esistente della PR.
+
+          Contesto:
+          - Ecosystem: ${PACKAGE_ECOSYSTEM}
+          - Dependencies: ${DEPENDENCY_NAMES}
+          - Dependency type: ${DEPENDENCY_TYPE}
+          - Update type: ${UPDATE_TYPE}
+          - Previous version: ${PREVIOUS_VERSION}
+          - New version: ${NEW_VERSION}
+
+          Obiettivo:
+          - analizza la dependency aggiornata;
+          - leggi changelog, release notes e migration guide ufficiali;
+          - esegui install, test, lint, typecheck e build già presenti nel repository;
+          - applica solo le modifiche minime necessarie;
+          - se l'upgrade è bloccato da peer dependency, versione Node, framework o altre librerie non compatibili, fermati e commenta il blocker.
+
+          Regole:
+          - non fare merge;
+          - non fare refactor non correlati;
+          - non aggiornare dipendenze non necessarie;
+          - non aggirare test falliti;
+          - non modificare configurazioni di CI se non strettamente necessario.
+
+          Alla fine lascia un commento con:
+          - documentazione consultata;
+          - file modificati;
+          - comandi eseguiti;
+          - esito test/lint/build;
+          - eventuali blocker;
+          - raccomandazione finale: merge, review manuale, wait oppure ignore."
+
+      - name: Ask Copilot to inspect grouped dependency update
+        if: |
+          inputs.run_on_grouped_updates == true &&
+          steps.metadata.outputs.dependency-group != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PACKAGE_ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+          DEPENDENCY_NAMES: ${{ steps.metadata.outputs.dependency-names }}
+          DEPENDENCY_GROUP: ${{ steps.metadata.outputs.dependency-group }}
+        run: |
+          gh pr comment "$PR_NUMBER" --body "@copilot
+
+          Questa è una PR Dependabot grouped update.
+
+          Lavora sulla branch esistente della PR.
+
+          Contesto:
+          - Ecosystem: ${PACKAGE_ECOSYSTEM}
+          - Dependency group: ${DEPENDENCY_GROUP}
+          - Dependencies: ${DEPENDENCY_NAMES}
+
+          Obiettivo:
+          - esegui la validazione già presente nel repository;
+          - se i check falliscono, identifica quale dependency ha causato il problema;
+          - applica solo fix minimi;
+          - se non è sicuro procedere, fermati e lascia report.
+
+          Non fare merge.
+          Non fare refactor non correlati.
+          Non aggiornare dipendenze non necessarie."
